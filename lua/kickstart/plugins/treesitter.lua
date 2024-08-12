@@ -18,6 +18,11 @@ return {
     config = function(_, opts)
       -- [[ Configure Treesitter ]] See `:help nvim-treesitter`
 
+      -- CKol: use zig as compiler, more stable than gcc on windows
+      require('nvim-treesitter.install').compilers = { 'zig' }
+      -- CKol: Prefer git instead of curl in order to improve connectivity in some environments
+      require('nvim-treesitter.install').prefer_git = truee
+
       ---@diagnostic disable-next-line: missing-fields
       require('nvim-treesitter.configs').setup(opts)
 

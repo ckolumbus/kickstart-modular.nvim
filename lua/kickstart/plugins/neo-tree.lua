@@ -1,4 +1,3 @@
--- Neo-tree is a Neovim plugin to browse the file system
 -- https://github.com/nvim-neo-tree/neo-tree.nvim
 
 return {
@@ -32,6 +31,7 @@ return {
   keys = {
     { '\\', '<Cmd>Neotree reveal<CR>', desc = 'NeoTree reveal' },
   },
+  --[[
   config = {
     popup_border_style = 'rounded',
     sources = {
@@ -40,6 +40,7 @@ return {
       'git_status',
     },
     filesystem = {
+      bind_to_cwd = true,
       filtered_items = {
         visible = true,
         hide_gitignored = true,
@@ -51,7 +52,7 @@ return {
       },
     },
   },
-  --[[
+  --]]
   config = function()
     -- If you want icons for diagnostic errors, you'll need to define them somewhere:
     vim.fn.sign_define('DiagnosticSignError', { text = ' ', texthl = 'DiagnosticSignError' })
@@ -60,6 +61,11 @@ return {
     vim.fn.sign_define('DiagnosticSignHint', { text = '󰌵', texthl = 'DiagnosticSignHint' })
 
     require('neo-tree').setup {
+      sources = {
+        'filesystem',
+        'buffers',
+        'git_status',
+      },
       close_if_last_window = false, -- Close Neo-tree if it is the last window left in the tab
       popup_border_style = 'rounded',
       enable_git_status = true,
@@ -213,6 +219,7 @@ return {
       },
       nesting_rules = {},
       filesystem = {
+        bind_to_cwd = false, -- TODO: auto follow DOES NOT WORK
         filtered_items = {
           visible = false, -- when true, they will just be displayed differently than normal items
           hide_dotfiles = true,
@@ -245,13 +252,10 @@ return {
           leave_dirs_open = false, -- `false` closes auto expanded dirs, such as with `:Neotree reveal`
         },
         group_empty_dirs = false, -- when true, empty folders will be grouped together
-        hijack_netrw_behavior = 'open_default', -- netrw disabled, opening a directory opens neo-tree
-        -- in whatever position is specified in window.position
-        -- "open_current",  -- netrw disabled, opening a directory opens within the
-        -- window like netrw would, regardless of window.position
+        hijack_netrw_behavior = 'open_default', -- netrw disabled, opening a directory opens neo-tree in whatever position is specified in window.position
+        -- "open_current",  -- netrw disabled, opening a directory opens within the window like netrw would, regardless of window.position
         -- "disabled",    -- netrw left alone, neo-tree does not handle opening dirs
-        use_libuv_file_watcher = false, -- This will use the OS level file watchers to detect changes
-        -- instead of relying on nvim autocmd events.
+        use_libuv_file_watcher = false, -- This will use the OS level file watchers to detect changes instead of relying on nvim autocmd events.
         window = {
           mappings = {
             ['<bs>'] = 'navigate_up',
@@ -327,14 +331,39 @@ return {
             ['on'] = { 'order_by_name', nowait = false },
             ['os'] = { 'order_by_size', nowait = false },
             ['ot'] = { 'order_by_type', nowait = false },
+            ['D'] = 'show_diff',
           },
+        },
+        commands = {
+          -- src: https://www.reddit.com/r/neovim/comments/125i5pv/comment/je4ixwf/
+          show_diff = function(state)
+            -- some variables. use any if you want
+            local node = state.tree:get_node()
+            -- local abs_path = node.path
+            -- local rel_path = vim.fn.fnamemodify(abs_path, ":~:.")
+            -- local file_name = node.name
+            local is_file = node.type == 'file'
+            if not is_file then
+              vim.notify('Diff only for files', vim.log.levels.ERROR)
+              return
+            end
+            -- open file
+            local cc = require 'neo-tree.sources.common.commands'
+            cc.open(state, function()
+              -- do nothing for dirs
+            end)
+
+            vim.cmd [[Gdiffsplit]] -- or
+            --vim.cmd([[Ghdiffsplit]]) -- or
+            --vim.cmd([[Gvdiffsplit]])
+            -- diffview.nvim
+            -- vim.cmd 'DiffviewOpen -- %'
+          end,
         },
       },
     }
-
     vim.cmd [[nnoremap \ :Neotree reveal<cr>]]
-  --]] --disabled copy of full config
-
+  end, --]]
   opts = {
     filesystem = {
       window = {

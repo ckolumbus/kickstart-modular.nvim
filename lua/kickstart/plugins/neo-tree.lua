@@ -1,4 +1,22 @@
 -- https://github.com/nvim-neo-tree/neo-tree.nvim
+--
+-- src: https://github.com/nvim-neo-tree/neo-tree.nvim/discussions/813
+local function reveal_tree()
+  if vim.bo.filetype ~= 'neo-tree' then
+    vim.cmd.Neotree { 'position=current', 'reveal' }
+  end
+end
+
+local function reveal_parent(state)
+  require('neo-tree.ui.renderer').focus_node(state, state.tree:get_node():get_parent_id())
+end
+
+local function edit_neo_tree_alternate_file()
+  local alternate_nr = vim.w.neo_tree_alternate_nr or vim.fn.bufnr '#' ---@diagnostic disable-line: param-type-mismatch
+  vim.w.neo_tree_alternate_nr = nil
+  vim.cmd.buffer(alternate_nr)
+end
+-- /src
 
 return {
   'nvim-neo-tree/neo-tree.nvim',
@@ -29,7 +47,14 @@ return {
   },
   cmd = 'Neotree',
   keys = {
-    { '\\', '<Cmd>Neotree reveal<CR>', desc = 'NeoTree reveal' },
+    --{ '\\', '<Cmd>Neotree reveal<CR>', desc = 'NeoTree reveal' },
+
+    -- src: https://github.com/nvim-neo-tree/neo-tree.nvim/discussions/813
+    { '<leader>e', false },
+    { '<leader>o', false },
+    { '\\', reveal_tree },
+    { '<C-^>', edit_neo_tree_alternate_file },
+    -- /
   },
   --[[
   config = {
@@ -60,13 +85,30 @@ return {
     vim.fn.sign_define('DiagnosticSignInfo', { text = ' ', texthl = 'DiagnosticSignInfo' })
     vim.fn.sign_define('DiagnosticSignHint', { text = '󰌵', texthl = 'DiagnosticSignHint' })
 
+    -- src: https://github.com/nvim-neo-tree/neo-tree.nvim/discussions/813
+    -- removes the "Window settings restored" message
+    --vim.api.nvim_del_augroup_by_name 'NeoTree_BufLeave'
+    close_if_last_window = false -- Close Neo-tree if it is the last window left in the tab
+    local bufenter = function(data)
+      local pattern = 'neo%-tree [^ ]+ %[1%d%d%d%]'
+      if string.match(data.file, pattern) then
+        vim.w.neo_tree_alternate_nr = vim.fn.bufnr '#' ---@diagnostic disable-line: param-type-mismatch
+      end
+    end
+    vim.api.nvim_create_autocmd({ 'BufWinEnter' }, {
+      group = vim.api.nvim_create_augroup('NeoTree_BufEnter', { clear = true }),
+      pattern = 'neo-tree *',
+      callback = bufenter,
+    })
+    -- /src
+    --
     require('neo-tree').setup {
       sources = {
         'filesystem',
         'buffers',
         'git_status',
       },
-      close_if_last_window = false, -- Close Neo-tree if it is the last window left in the tab
+
       popup_border_style = 'rounded',
       enable_git_status = true,
       enable_diagnostics = true,
@@ -252,10 +294,11 @@ return {
           leave_dirs_open = false, -- `false` closes auto expanded dirs, such as with `:Neotree reveal`
         },
         group_empty_dirs = false, -- when true, empty folders will be grouped together
-        hijack_netrw_behavior = 'open_default', -- netrw disabled, opening a directory opens neo-tree in whatever position is specified in window.position
+        hijack_netrw_behavior = 'open_current',
+        --  'open_default', -- netrw disabled, opening a directory opens neo-tree in whatever position is specified in window.position
         -- "open_current",  -- netrw disabled, opening a directory opens within the window like netrw would, regardless of window.position
-        -- "disabled",    -- netrw left alone, neo-tree does not handle opening dirs
-        use_libuv_file_watcher = false, -- This will use the OS level file watchers to detect changes instead of relying on nvim autocmd events.
+        -- "disabled",      -- netrw left alone, neo-tree does not handle opening dirs
+        use_libuv_file_watcher = true, -- This will use the OS level file watchers to detect changes instead of relying on nvim autocmd events.
         window = {
           mappings = {
             ['<bs>'] = 'navigate_up',
@@ -278,6 +321,8 @@ return {
             ['os'] = { 'order_by_size', nowait = false },
             ['ot'] = { 'order_by_type', nowait = false },
             -- ['<key>'] = function(state) ... end,
+            ['\\'] = 'close_window',
+            ['-'] = reveal_parent,
           },
           fuzzy_finder_mappings = { -- define keymaps for filter popup window in fuzzy_finder_mode
             ['<down>'] = 'move_cursor_down',
@@ -362,15 +407,6 @@ return {
         },
       },
     }
-    vim.cmd [[nnoremap \ :Neotree reveal<cr>]]
-  end, --]]
-  opts = {
-    filesystem = {
-      window = {
-        mappings = {
-          ['\\'] = 'close_window',
-        },
-      },
-    },
-  },
+    vim.cmd [[nnoremap \ :Neotree current<cr>]]
+  end, --]
 }
